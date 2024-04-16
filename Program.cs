@@ -8,7 +8,7 @@ namespace OtusBasicGradWork
     {
         static void Main(string[] args)
         {
-            var botClient = new TelegramBotClient("7136737202:AAEn6q0zfdI5GquLbitfs5dVkVFjZWuNkPU");
+            var botClient = new TelegramBotClient("");
             var execImg = new Executor();
             var custImg = new Customer();
             var dictStatesOfUsers = new Dictionary<long, object>();
