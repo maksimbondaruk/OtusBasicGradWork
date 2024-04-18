@@ -8,7 +8,7 @@ namespace OtusBasicGradWork
     {
         static void Main(string[] args)
         {
-            var botClient = new TelegramBotClient("");
+            var botClient = new TelegramBotClient("7136737202:AAEn6q0zfdI5GquLbitfs5dVkVFjZWuNkPU");
             var execImg = new Executor();
             var custImg = new Customer();
             var dictStatesOfUsers = new Dictionary<long, object>();
@@ -51,7 +51,7 @@ namespace OtusBasicGradWork
                                     await custImg.Process(client, update, ct);
                                     dictStatesOfUsers[update.Message.Chat.Id] = ChatMode.Customer;
                                     break;
-                                case "/executor":
+                                case "/tester":
                                     await execImg.Process(client, update, ct);
                                     dictStatesOfUsers[update.Message.Chat.Id] = ChatMode.Executor;
                                     break;
@@ -80,7 +80,7 @@ namespace OtusBasicGradWork
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                               text: "Выберите роль\n" +
                                               "/customer - получение фото\n" +
-                                              "/map - генерация координаты",
+                                              "/tester - генерация координаты",
                                               cancellationToken: ct);
         }
     }

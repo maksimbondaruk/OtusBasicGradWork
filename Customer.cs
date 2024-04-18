@@ -8,50 +8,86 @@ using Telegram.Bot;
 
 namespace OtusBasicGradWork
 {
-    enum OrdState
-    {
-        Initial = 0,
-        SetLat = 1, 
-        SetLon = 2,
-        /*Name = 1,
-        A = 2,
-        B = 3,
-        BalLo = 4,
-        BalOk = 5,
-        Running = 6,
-        Pause = 7,
-        Delete = 8*/
-    }
-    class MapGenState
+
+    /*class MapGenState
     {
         public double Lat {  get; set; }
         public double Long { get; set; }
         public int Balance { get; set; }
         public OrdState Mode { get; set; }
-    }
+    }*/
     internal class Customer
     {
-        public Dictionary<long, MapGenState> ChatDict { get; set; } = [];
+        //public Dictionary<long, MapGenState> ChatDict { get; set; } = [];
+        public Dictionary<long, Order> OrderDict { get; private set; }
         public async Task Process(ITelegramBotClient client, Update update, CancellationToken ct)
         {
-            if (!ChatDict.TryGetValue(update.Message.Chat.Id, out var state)) 
-            { 
-                ChatDict.Add(update.Message.Chat.Id, new MapGenState()); 
-            }
-            state = ChatDict[update.Message.Chat.Id];
-
-            switch(state.Mode) 
+            //Проверяем что был выбрана кнопка создать заказ    //!ChatDict.TryGetValue(update.Message.Chat.Id, out var state) - уже есть запись в словаре с таким Chat.Id
+            long _orderIdx = 0;
+            if (update.Message.Text == "/createorder") 
             {
-                case OrdState.Initial:
+                var tempOrder = new Order(update.Message.Chat.Id);
+                for (var i = 0; i < 999; i++)
+                {
+                    if (OrderDict.TryAdd(update.Message.Chat.Id * 1000 + i, tempOrder))
+                    {
+                        _orderIdx = update.Message.Chat.Id * 1000 + i;
+                        break;
+                    }
+
+                    
+                    if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.Deleted))
+                    {
+                        continue;
+                    }
+
+                }    
+
+            }
+            
+            if (_orderIdx == 0)
+            {
+                for (var i = 0; i < 999; i++)
+                {
+                    if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.Deleted))
+                    {
+                        _orderIdx = update.Message.Chat.Id * 1000 + i;
+                        break;
+                    }
+                }
+            }
+
+            var state = OrderDict[_orderIdx].State;
+            switch(state) 
+            {
+                case Order.OrdState.Initial:
                     await SendInitial(client, update, state, ct);
                     break;
-                case OrdState.SetLat:
+                case Order.OrdState.Named:
                     await SendLat(client, update, state, ct);
                     break;
-                case OrdState.SetLon:
+                case Order.OrdState.LoadedA:
                     await SendLong(client, update, state, ct);
-                    state.Mode = OrdState.Initial;
+                    state = Order.OrdState.Initial;
                     await SendInitial(client, update, state, ct);
+                    break;
+                case Order.OrdState.LoadedB:
+                    await SendLat(client, update, state, ct);
+                    break;
+                case Order.OrdState.BalanceLo:
+                    await SendLat(client, update, state, ct);
+                    break;
+                case Order.OrdState.BalanceOk:
+                    await SendLat(client, update, state, ct);
+                    break;
+                case Order.OrdState.Running:
+                    await SendLat(client, update, state, ct);
+                    break;
+                case Order.OrdState.Paused:
+                    await SendLat(client, update, state, ct);
+                    break;
+                case Order.OrdState.Deleted:
+                    await SendLat(client, update, state, ct);
                     break;
             }
         }
@@ -101,5 +137,6 @@ namespace OtusBasicGradWork
                                               cancellationToken: ct);
             state.Mode = OrdState.SetLat;
         }
+            */
     }
 }
