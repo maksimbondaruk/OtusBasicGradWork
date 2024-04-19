@@ -18,9 +18,19 @@ namespace OtusBasicGradWork
             BalanceOk = 6,
             Running = 7,
             Paused = 8,
-            Deleted = 9
+            ToDelete = 9
         }
         public long Id { get; }
+        private string _name;
+        public string Name 
+        {   
+            get => _name; 
+            set
+            {
+                if (State == OrdState.Initial)
+                _name = value;
+            } 
+        }
         public long UserId { get; } = int.MinValue;
         public int VoteOrder {get; private set ;} = int.MinValue;
         public int VoteActual { get; } = int.MinValue;

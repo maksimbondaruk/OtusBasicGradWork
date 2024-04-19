@@ -5,6 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Telegram.Bot.Types;
 using Telegram.Bot;
+using static OtusBasicGradWork.Order;
 
 namespace OtusBasicGradWork
 {
@@ -32,24 +33,17 @@ namespace OtusBasicGradWork
                     if (OrderDict.TryAdd(update.Message.Chat.Id * 1000 + i, tempOrder))
                     {
                         _orderIdx = update.Message.Chat.Id * 1000 + i;
+                        OrderDict[_orderIdx].State = Order.OrdState.Initial;
                         break;
                     }
-
-                    
-                    if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.Deleted))
-                    {
-                        continue;
-                    }
-
-                }    
-
+                }
             }
             
             if (_orderIdx == 0)
             {
                 for (var i = 0; i < 999; i++)
                 {
-                    if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.Deleted))
+                    if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.ToDelete))
                     {
                         _orderIdx = update.Message.Chat.Id * 1000 + i;
                         break;
@@ -57,86 +51,95 @@ namespace OtusBasicGradWork
                 }
             }
 
-            var state = OrderDict[_orderIdx].State;
-            switch(state) 
+            //var state = OrderDict[_orderIdx].State;
+            var _order = OrderDict[_orderIdx];
+            switch (_order.State) 
             {
                 case Order.OrdState.Initial:
-                    await SendInitial(client, update, state, ct);
+                    await SetName(client, update, _order, ct);
                     break;
                 case Order.OrdState.Named:
-                    await SendLat(client, update, state, ct);
+                    await GetA(client, update, _order, ct);
                     break;
                 case Order.OrdState.LoadedA:
-                    await SendLong(client, update, state, ct);
+                    await SendLong(client, update, _order, ct);
                     state = Order.OrdState.Initial;
-                    await SendInitial(client, update, state, ct);
+                    await SetName(client, update, _order, ct);
                     break;
                 case Order.OrdState.LoadedB:
-                    await SendLat(client, update, state, ct);
+                    await SendLat(client, update, _order, ct);
                     break;
                 case Order.OrdState.BalanceLo:
-                    await SendLat(client, update, state, ct);
+                    await SendLat(client, update, _order, ct);
                     break;
                 case Order.OrdState.BalanceOk:
-                    await SendLat(client, update, state, ct);
+                    await SendLat(client, update, _order, ct);
                     break;
                 case Order.OrdState.Running:
-                    await SendLat(client, update, state, ct);
+                    await SendLat(client, update, _order, ct);
                     break;
                 case Order.OrdState.Paused:
-                    await SendLat(client, update, state, ct);
+                    await SendLat(client, update, _order, ct);
                     break;
-                case Order.OrdState.Deleted:
-                    await SendLat(client, update, state, ct);
+                case Order.OrdState.ToDelete:
+                    await SendLat(client, update, _order, ct);
                     break;
             }
         }
 
-        private static async Task SendLong(ITelegramBotClient client, Update update, MapGenState? state, CancellationToken ct)
+        private static async Task SetName(ITelegramBotClient client, Update update, Order order, CancellationToken ct)
         {
-            var lonText = update.Message.Text;
-            if (lonText == null || !double.TryParse(lonText, out var lon))
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                              text: "Введите название теста",
+                                              cancellationToken: ct);
+            //Тут нужна функция показать кнопки
+            var ordNameText = update.Message.Text;
+            if (ordNameText != null)
             {
-                await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                  text: "Введите долготу корректно",
-                                                  cancellationToken: ct);
+                if (ordNameText == "/maincustomer")
+                {
+                    await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                  text: "Сброс заказа, возврат в меню заказчика",
+                                  cancellationToken: ct);
+                    order.State = Order.OrdState.ToDelete;
+                }
+                else
+                {
+                    order.Name = ordNameText;
+                    order.State = Order.OrdState.Named;
+                }
             }
-            else
-                state.Long = lon;
-            await client.SendLocationAsync(chatId: update.Message.Chat.Id,
-                                           latitude: state.Lat,
-                                           longitude: state.Long,
-                                           cancellationToken: ct);
-
-            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                              text: "Вот Ваша точка",
-                                              cancellationToken: ct);
         }
-
-        private static async Task SendLat(ITelegramBotClient client, Update update, MapGenState? state, CancellationToken ct)
+        private static async Task GetA(ITelegramBotClient client, Update update, Order order, CancellationToken ct)
         {
-            var latText = update.Message.Text;
-            if (latText == null || !double.TryParse(latText, out var lat))
+            var ordNameText = update.Message.Text;
+            if (ordNameText != null)
             {
-                await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                  text: "Введите широту корректно",
-                                                  cancellationToken: ct);
+                switch (ordNameText)
+                {
+                    case "/maincustomer":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Сброс заказа, возврат в меню заказчика",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.ToDelete;
+                        break;
+                    case "/back":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "возврат к предыдущему пункту",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.Named;
+                        break;
+                    default:
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "отправьте сюда фото, а не сообщение",
+                                                          cancellationToken: ct);
+                        break;
+                }
             }
-            else
-                state.Lat = lat;
-            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                              text: "Введите долготу",
-                                              cancellationToken: ct);
-            state.Mode = OrdState.SetLon;
+            //Сюда надо вставить:
+            //создание папки клиента
+            //папки заказа
+            //и туда приемку фото
         }
-
-        private static async Task SendInitial(ITelegramBotClient client, Update update, MapGenState? state, CancellationToken ct)
-        {
-            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                              text: "Введите широту",
-                                              cancellationToken: ct);
-            state.Mode = OrdState.SetLat;
-        }
-            */
     }
 }
