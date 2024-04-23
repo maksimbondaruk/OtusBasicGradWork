@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Telegram.Bot.Types;
 using Telegram.Bot;
 using static OtusBasicGradWork.Order;
+using Newtonsoft.Json.Linq;
 
 namespace OtusBasicGradWork
 {
@@ -17,8 +18,10 @@ namespace OtusBasicGradWork
         public int Balance { get; set; }
         public OrdState Mode { get; set; }
     }*/
-    internal class Customer
+    internal class Customer: IDisposable
     {
+        private bool disposedValue;
+
         //public Dictionary<long, MapGenState> ChatDict { get; set; } = [];
         public Dictionary<long, Order> OrderDict { get; private set; }
         public async Task Process(ITelegramBotClient client, Update update, CancellationToken ct)
@@ -34,6 +37,7 @@ namespace OtusBasicGradWork
                     {
                         _orderIdx = update.Message.Chat.Id * 1000 + i;
                         OrderDict[_orderIdx].State = Order.OrdState.Initial;
+                        OrderDict[_orderIdx].Id = _orderIdx;
                         break;
                     }
                 }
@@ -136,10 +140,54 @@ namespace OtusBasicGradWork
                         break;
                 }
             }
-            //Сюда надо вставить:
-            //создание папки клиента
-            //папки заказа
-            //и туда приемку фото
+            string dirName = Path.Combine(@"C:\", update.Message.Chat.Id.ToString(), "customer", order.Id.ToString());
+            // если папка не существует
+            if (!Directory.Exists(dirName))
+            {
+                Directory.CreateDirectory(dirName);
+            }
+            if (update.Message.Photo != null) 
+            {
+                var fileId = update.Message.Photo.Last().FileId;
+                var fileInfo = await client.GetFileAsync(fileId, ct);
+                if (ct.IsCancellationRequested)
+                    ct.ThrowIfCancellationRequested(); // генерируем исключение
+                var _filePath = fileInfo.FilePath;
+
+                string desinationFilePath = Path.Combine(dirName, _filePath, "A.jpg");
+                await using FileStream fileStream = System.IO.File.OpenWrite(desinationFilePath);
+                await client.DownloadFileAsync(filePath: _filePath, destination: fileStream);
+            }
+            order.State = Order.OrdState.LoadedA;
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposedValue)
+            {
+                if (disposing)
+                {
+                    // TODO: освободить управляемое состояние (управляемые объекты)
+                }
+
+                // TODO: освободить неуправляемые ресурсы (неуправляемые объекты) и переопределить метод завершения
+                // TODO: установить значение NULL для больших полей
+                disposedValue = true;
+            }
+        }
+
+        // // TODO: переопределить метод завершения, только если "Dispose(bool disposing)" содержит код для освобождения неуправляемых ресурсов
+        // ~Customer()
+        // {
+        //     // Не изменяйте этот код. Разместите код очистки в методе "Dispose(bool disposing)".
+        //     Dispose(disposing: false);
+        // }
+
+        public void Dispose()
+        {
+            // Не изменяйте этот код. Разместите код очистки в методе "Dispose(bool disposing)".
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

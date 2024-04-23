@@ -20,7 +20,7 @@ namespace OtusBasicGradWork
             Paused = 8,
             ToDelete = 9
         }
-        public long Id { get; }
+        public long Id { get; internal set; }
         private string _name;
         public string Name 
         {   
@@ -32,7 +32,7 @@ namespace OtusBasicGradWork
             } 
         }
         public long UserId { get; } = int.MinValue;
-        public int VoteOrder {get; private set ;} = int.MinValue;
+        public int VoteOrder {get; internal set ;} = int.MinValue;
         public int VoteActual { get; } = int.MinValue;
         public double VoteA {  get; } = double.MinValue;
         public double VoteB { get; } = double.MinValue;
@@ -40,10 +40,10 @@ namespace OtusBasicGradWork
 
         public Order(long userId)
         {
-            Id = long.Parse(DateTime.UtcNow.Month.ToString() + DateTime.UtcNow.Day.ToString() 
-                            + DateTime.UtcNow.Hour.ToString() + DateTime.UtcNow.Minute.ToString()); //12312359
+            //Id = long.Parse(DateTime.UtcNow.Month.ToString() + DateTime.UtcNow.Day.ToString() 
+            //                + DateTime.UtcNow.Hour.ToString() + DateTime.UtcNow.Minute.ToString()); //12312359
             UserId = userId;
-            State = OrdState.Initial;
+            State = 0; //OrdState.Initial
         }
 
         public void MakeChoiseA (double voteRate)

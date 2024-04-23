@@ -12,7 +12,10 @@ namespace OtusBasicGradWork
             var execImg = new Executor();
             var custImg = new Customer();
             var dictStatesOfUsers = new Dictionary<long, object>();
-           
+
+            CancellationTokenSource ct = new CancellationTokenSource();
+            CancellationToken token = ct.Token;
+
             var ro = new ReceiverOptions
             {
                 AllowedUpdates = new Telegram.Bot.Types.Enums.UpdateType[] { },  
