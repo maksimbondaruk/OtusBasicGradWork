@@ -9,9 +9,10 @@ namespace OtusBasicGradWork
         static void Main(string[] args)
         {
             var botClient = new TelegramBotClient("");
-            var execImg = new Executor();
-            var custImg = new Customer();
-            var dictStatesOfUsers = new Dictionary<long, object>();
+            var _executor = new Executor();
+            var _customer = new Customer();
+            var _customerTestBalance = 1000;
+            var dictStatesOfUsers = new Dictionary<long, User>();
 
             CancellationTokenSource ct = new CancellationTokenSource();
             CancellationToken token = ct.Token;
@@ -26,37 +27,38 @@ namespace OtusBasicGradWork
 
             async Task Handler(ITelegramBotClient client, Update update, CancellationToken ct)
             {
-                if (!dictStatesOfUsers.TryGetValue(update.Message.Chat.Id, out var state))
+                if (!dictStatesOfUsers.TryGetValue(update.Message.Chat.Id, out var userData))
                 {
-                    dictStatesOfUsers.Add(update.Message.Chat.Id, ChatMode.Initial);
+                    dictStatesOfUsers.Add(update.Message.Chat.Id, new User(_customerTestBalance, ChatMode.Initial));
+                    userData = dictStatesOfUsers[update.Message.Chat.Id];
                 }
-                state = dictStatesOfUsers[update.Message.Chat.Id];
+                //state.ChatMode = dictStatesOfUsers[update.Message.Chat.Id].ChatMode;
 
                 if (update.Message.Text == "/main")
                 {
-                    dictStatesOfUsers[update.Message.Chat.Id] = ChatMode.Initial;
+                    userData.ChatMode = ChatMode.Initial;
                     await SendMenu(client, update, ct);
                 }
                 else
                 {
-                    switch(state)
+                    switch(userData.ChatMode)
                     {
-                        case ChatMode.Executor:
-                            await execImg.Process(client, update, ct);
-                            break;
                         case ChatMode.Customer:
-                            await custImg.Process(client, update, ct);
+                            await _customer.Process(client, update, ct, userData);
+                            break;
+                        case ChatMode.Executor:
+                            await _executor.Process(client, update, ct);
                             break;
                         default:
                             switch (update.Message.Text)
                             {
                                 case "/customer":
-                                    await custImg.Process(client, update, ct);
-                                    dictStatesOfUsers[update.Message.Chat.Id] = ChatMode.Customer;
+                                    await _customer.Process(client, update, ct, userData);
+                                    dictStatesOfUsers[update.Message.Chat.Id].ChatMode = ChatMode.Customer;
                                     break;
                                 case "/tester":
-                                    await execImg.Process(client, update, ct);
-                                    dictStatesOfUsers[update.Message.Chat.Id] = ChatMode.Executor;
+                                    await _executor.Process(client, update, ct);
+                                    dictStatesOfUsers[update.Message.Chat.Id].ChatMode = ChatMode.Executor;
                                     break;
                                 default:
                                     await SendMenu(client, update, ct);
@@ -87,10 +89,10 @@ namespace OtusBasicGradWork
                                               cancellationToken: ct);
         }
     }
-}
-enum ChatMode
-{
-    Initial = 0,
-    Executor = 1,
-    Customer = 2,
+    enum ChatMode
+    {
+        Initial = 0,
+        Executor = 1,
+        Customer = 2,
+    }
 }

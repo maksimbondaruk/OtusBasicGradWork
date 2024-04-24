@@ -9,22 +9,13 @@ using static OtusBasicGradWork.Order;
 using Newtonsoft.Json.Linq;
 
 namespace OtusBasicGradWork
-{
-
-    /*class MapGenState
-    {
-        public double Lat {  get; set; }
-        public double Long { get; set; }
-        public int Balance { get; set; }
-        public OrdState Mode { get; set; }
-    }*/
-    internal class Customer: IDisposable
+{    internal class Customer: IDisposable
     {
         private bool disposedValue;
 
         //public Dictionary<long, MapGenState> ChatDict { get; set; } = [];
         public Dictionary<long, Order> OrderDict { get; private set; }
-        public async Task Process(ITelegramBotClient client, Update update, CancellationToken ct)
+        public async Task Process(ITelegramBotClient client, Update update, CancellationToken ct, User userData)
         {
             //Проверяем что был выбрана кнопка создать заказ    //!ChatDict.TryGetValue(update.Message.Chat.Id, out var state) - уже есть запись в словаре с таким Chat.Id
             long _orderIdx = 0;
@@ -63,18 +54,18 @@ namespace OtusBasicGradWork
                     await SetName(client, update, _order, ct);
                     break;
                 case Order.OrdState.Named:
-                    await GetA(client, update, _order, ct);
+                    await GetImg(client, update, _order, ct, "A.jpg");
+                    _order.State = Order.OrdState.LoadedA;
                     break;
                 case Order.OrdState.LoadedA:
-                    await SendLong(client, update, _order, ct);
-                    state = Order.OrdState.Initial;
-                    await SetName(client, update, _order, ct);
+                    await GetImg(client, update, _order, ct, "B.jpg");
+                    _order.State = Order.OrdState.LoadedB;
                     break;
                 case Order.OrdState.LoadedB:
-                    await SendLat(client, update, _order, ct);
+                    await GetVoteOrder(client, update, _order, ct, userData);
                     break;
                 case Order.OrdState.BalanceLo:
-                    await SendLat(client, update, _order, ct);
+                    await BalanceLo(client, update, _order, ct, userData);
                     break;
                 case Order.OrdState.BalanceOk:
                     await SendLat(client, update, _order, ct);
@@ -91,7 +82,7 @@ namespace OtusBasicGradWork
             }
         }
 
-        private static async Task SetName(ITelegramBotClient client, Update update, Order order, CancellationToken ct)
+        private async Task SetName(ITelegramBotClient client, Update update, Order order, CancellationToken ct)
         {
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                               text: "Введите название теста",
@@ -114,7 +105,7 @@ namespace OtusBasicGradWork
                 }
             }
         }
-        private static async Task GetA(ITelegramBotClient client, Update update, Order order, CancellationToken ct)
+        private async Task GetImg(ITelegramBotClient client, Update update, Order order, CancellationToken ct, string fileStoreName)
         {
             var ordNameText = update.Message.Text;
             if (ordNameText != null)
@@ -131,7 +122,7 @@ namespace OtusBasicGradWork
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                                           text: "возврат к предыдущему пункту",
                                                           cancellationToken: ct);
-                        order.State = Order.OrdState.Named;
+                        order.State--;
                         break;
                     default:
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
@@ -154,11 +145,64 @@ namespace OtusBasicGradWork
                     ct.ThrowIfCancellationRequested(); // генерируем исключение
                 var _filePath = fileInfo.FilePath;
 
-                string desinationFilePath = Path.Combine(dirName, _filePath, "A.jpg");
+                string desinationFilePath = Path.Combine(dirName, _filePath, fileStoreName);
                 await using FileStream fileStream = System.IO.File.OpenWrite(desinationFilePath);
                 await client.DownloadFileAsync(filePath: _filePath, destination: fileStream);
             }
-            order.State = Order.OrdState.LoadedA;
+        }
+        private async Task GetVoteOrder(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
+        {
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                  text: "На Вашем баллансе " + userData.Balance.ToString(),
+                                  cancellationToken: ct);
+            if ((order.VoteOrder == 0)||userData.RequestToChangeVoteOrder)
+            {
+                await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                      text: "Введите сумму, которую готовы потратить на тест",
+                      cancellationToken: ct);
+                _ = int.TryParse(update.Message.Text, out var _orderValue);
+                order.VoteOrder = _orderValue;
+            }
+
+            if (userData.Balance < order.VoteOrder) 
+            {
+                order.State = OrdState.BalanceLo;
+                return;
+            }
+            order.State = OrdState.BalanceOk;
+        }
+        private async Task BalanceLo(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
+        {
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                  text: "На Вашем баллансе не хватает " + (userData.Balance - order.VoteOrder).ToString() +
+                                  " баллов для этого заказа.\n Предпочитаете пополнить балланс или изменить сумму заказа?",
+                                  cancellationToken: ct);
+            var ordNameText = update.Message.Text;
+            if (ordNameText != null)
+            {
+                switch (ordNameText)
+                {
+                    case "/addtobalance":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Сброс заказа, возврат в меню заказчика",
+                                                          cancellationToken: ct);
+                        userData.RequestToChangeVoteOrder = true;
+                        order.State = Order.OrdState.LoadedB;
+                        break;
+                    case "/changevoteorder":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "возврат к предыдущему пункту",
+                                                          cancellationToken: ct);
+                        order.State--;
+                        break;
+                    default:
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Выберите предложенный вариант",
+                                                          cancellationToken: ct);
+                        break;
+                }
+
+            }
         }
 
         protected virtual void Dispose(bool disposing)

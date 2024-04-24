@@ -32,7 +32,7 @@ namespace OtusBasicGradWork
             } 
         }
         public long UserId { get; } = int.MinValue;
-        public int VoteOrder {get; internal set ;} = int.MinValue;
+        public int VoteOrder {get; internal set ;} = 0;
         public int VoteActual { get; } = int.MinValue;
         public double VoteA {  get; } = double.MinValue;
         public double VoteB { get; } = double.MinValue;
