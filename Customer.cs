@@ -7,6 +7,7 @@ using Telegram.Bot.Types;
 using Telegram.Bot;
 using static OtusBasicGradWork.Order;
 using Newtonsoft.Json.Linq;
+using System.Net.WebSockets;
 
 namespace OtusBasicGradWork
 {    internal class Customer: IDisposable
@@ -182,18 +183,22 @@ namespace OtusBasicGradWork
             {
                 switch (ordNameText)
                 {
-                    case "/addtobalance":
+                    case "/changevoteorder":
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                                           text: "Сброс заказа, возврат в меню заказчика",
                                                           cancellationToken: ct);
                         userData.RequestToChangeVoteOrder = true;
                         order.State = Order.OrdState.LoadedB;
                         break;
-                    case "/changevoteorder":
+                    case "/addtobalance":
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                          text: "возврат к предыдущему пункту",
+                                                          text: "На какую сумму хотите пополнить балланс?",
                                                           cancellationToken: ct);
-                        order.State--;
+                        if (update.Message.Text != null)&&(int.TryParse(update.Message.Text, out var result))
+                        {
+                            userData.Balance += result;
+                        }
+                        order.State = Order.OrdState.LoadedB;
                         break;
                     default:
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
