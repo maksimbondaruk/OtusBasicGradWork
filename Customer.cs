@@ -8,17 +8,23 @@ using Telegram.Bot;
 using static OtusBasicGradWork.Order;
 using Newtonsoft.Json.Linq;
 using System.Net.WebSockets;
+using System.Reflection.Metadata.Ecma335;
 
 namespace OtusBasicGradWork
 {    internal class Customer: IDisposable
     {
         private bool disposedValue;
-
-        //public Dictionary<long, MapGenState> ChatDict { get; set; } = [];
-        public Dictionary<long, Order> OrderDict { get; private set; }
+        public Dictionary<long, Order> OrderDict { get; private set; } = new Dictionary<long, Order>();
         public async Task Process(ITelegramBotClient client, Update update, CancellationToken ct, User userData)
         {
-            //Проверяем что был выбрана кнопка создать заказ    //!ChatDict.TryGetValue(update.Message.Chat.Id, out var state) - уже есть запись в словаре с таким Chat.Id
+            if (update.Message.Text == "/customer")
+            {
+                await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                  text: "Хотите создать заказ /createorder или посмотреть список своих заказов /showorderlist",
+                                                  cancellationToken: ct);
+                return;
+            }
+            //Проверяем что был выбрана кнопка создать заказ
             long _orderIdx = 0;
             if (update.Message.Text == "/createorder") 
             {
@@ -33,22 +39,25 @@ namespace OtusBasicGradWork
                         break;
                     }
                 }
-            }
-            
-            if (_orderIdx == 0)
-            {
-                for (var i = 0; i < 999; i++)
+                if (_orderIdx == 0)
                 {
-                    if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.ToDelete))
+                    for (var i = 0; i < 999; i++)
                     {
-                        _orderIdx = update.Message.Chat.Id * 1000 + i;
-                        break;
+                        if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.ToDelete))
+                        {
+                            _orderIdx = update.Message.Chat.Id * 1000 + i;
+                            break;
+                        }
                     }
                 }
             }
+            
 
-            //var state = OrderDict[_orderIdx].State;
+
             var _order = OrderDict[_orderIdx];
+            var _lowBalanceState = userData.Balance < (OrderDict[_orderIdx].VoteOrder - OrderDict[_orderIdx].VoteActual)*userData.BalToVoteKoef;
+
+            //StateConditionTable
             switch (_order.State) 
             {
                 case Order.OrdState.Initial:
@@ -63,22 +72,22 @@ namespace OtusBasicGradWork
                     _order.State = Order.OrdState.LoadedB;
                     break;
                 case Order.OrdState.LoadedB:
-                    await GetVoteOrder(client, update, _order, ct, userData);
+                    await GetVoteOrder(client, update, _order, ct, userData, _lowBalanceState);
                     break;
                 case Order.OrdState.BalanceLo:
                     await BalanceLo(client, update, _order, ct, userData);
                     break;
                 case Order.OrdState.BalanceOk:
-                    await SendLat(client, update, _order, ct);
+                    await BalanceOk(client, update, _order, ct, userData);
                     break;
                 case Order.OrdState.Running:
-                    await SendLat(client, update, _order, ct);
+                    await Running(client, update, _order, ct, userData, _lowBalanceState);
                     break;
                 case Order.OrdState.Paused:
-                    await SendLat(client, update, _order, ct);
+                    await Paused(client, update, _order, ct, userData, _lowBalanceState);
                     break;
                 case Order.OrdState.ToDelete:
-                    await SendLat(client, update, _order, ct);
+                    await DeleteOrder(client, update, _orderIdx, _order, ct);
                     break;
             }
         }
@@ -89,29 +98,36 @@ namespace OtusBasicGradWork
                                               text: "Введите название теста",
                                               cancellationToken: ct);
             //Тут нужна функция показать кнопки
-            var ordNameText = update.Message.Text;
-            if (ordNameText != null)
-            {
-                if (ordNameText == "/maincustomer")
+            var userText = update.Message.Text;
+                if (userText != null)
                 {
-                    await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                  text: "Сброс заказа, возврат в меню заказчика",
-                                  cancellationToken: ct);
-                    order.State = Order.OrdState.ToDelete;
+                    switch (userText)
+                    {
+                        case "/maincustomer":
+                            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                              text: "Сброс заказа, возврат в меню заказчика",
+                                                              cancellationToken: ct);
+                            order.State = Order.OrdState.ToDelete;
+                            break;
+                        default:
+                            if (update.Message.Text != "/createorder")
+                            {
+                                order.Name = userText;
+                                order.State = Order.OrdState.Named;
+                            }
+                            break;
+                    }
                 }
-                else
-                {
-                    order.Name = ordNameText;
-                    order.State = Order.OrdState.Named;
-                }
-            }
         }
         private async Task GetImg(ITelegramBotClient client, Update update, Order order, CancellationToken ct, string fileStoreName)
         {
-            var ordNameText = update.Message.Text;
-            if (ordNameText != null)
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                              text: "Пришли фото А",
+                                              cancellationToken: ct);
+            var userText = update.Message.Text;
+            if (userText != null)
             {
-                switch (ordNameText)
+                switch (userText)
                 {
                     case "/maincustomer":
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
@@ -151,7 +167,7 @@ namespace OtusBasicGradWork
                 await client.DownloadFileAsync(filePath: _filePath, destination: fileStream);
             }
         }
-        private async Task GetVoteOrder(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
+        private async Task GetVoteOrder(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData, bool lowBal)
         {
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                   text: "На Вашем баллансе " + userData.Balance.ToString(),
@@ -165,7 +181,7 @@ namespace OtusBasicGradWork
                 order.VoteOrder = _orderValue;
             }
 
-            if (userData.Balance < order.VoteOrder) 
+            if (lowBal) 
             {
                 order.State = OrdState.BalanceLo;
                 return;
@@ -175,18 +191,15 @@ namespace OtusBasicGradWork
         private async Task BalanceLo(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
         {
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                  text: "На Вашем баллансе не хватает " + (userData.Balance - order.VoteOrder).ToString() +
-                                  " баллов для этого заказа.\n Предпочитаете пополнить балланс или изменить сумму заказа?",
+                                  text: "На Вашем баллансе не хватает " + (userData.Balance - (order.VoteOrder-order.VoteActual)*userData.BalToVoteKoef).ToString() +
+                                  " баллов для выполнения заказа.\n Предпочитаете пополнить балланс или изменить сумму заказа?",
                                   cancellationToken: ct);
-            var ordNameText = update.Message.Text;
-            if (ordNameText != null)
+            var userText = update.Message.Text;
+            if (userText != null)
             {
-                switch (ordNameText)
+                switch (userText)
                 {
                     case "/changevoteorder":
-                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                          text: "Сброс заказа, возврат в меню заказчика",
-                                                          cancellationToken: ct);
                         userData.RequestToChangeVoteOrder = true;
                         order.State = Order.OrdState.LoadedB;
                         break;
@@ -194,22 +207,161 @@ namespace OtusBasicGradWork
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                                           text: "На какую сумму хотите пополнить балланс?",
                                                           cancellationToken: ct);
-                        if (update.Message.Text != null)&&(int.TryParse(update.Message.Text, out var result))
+                        if ((update.Message.Text != null)&&(int.TryParse(update.Message.Text, out var result)))
                         {
                             userData.Balance += result;
                         }
                         order.State = Order.OrdState.LoadedB;
                         break;
+                    case "/maincustomer":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Сброс заказа, возврат в меню заказчика",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.ToDelete;
+                        break;
                     default:
                         await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                          text: "Выберите предложенный вариант",
+                                                          text: "Введите сумму цифрами",
                                                           cancellationToken: ct);
                         break;
                 }
-
             }
         }
+        private async Task BalanceOk(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
+        {
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                  text: "На этом этапе можно запустить тест, скорректироват или отменить его",
+                                  cancellationToken: ct);
+            var userText = update.Message.Text;
+            if (userText != null)
+            {
+                switch (userText)
+                {
+                    case "/changevoteorder":
+                        userData.RequestToChangeVoteOrder = true;
+                        order.State = Order.OrdState.LoadedB;
+                        break;
+                    case "/runtest":
+                        order.State = Order.OrdState.Running;
+                        break;
+                    case "/maincustomer":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Сброс заказа, возврат в меню заказчика",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.ToDelete;
+                        break;
+                    default:
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Выберите действие",
+                                                          cancellationToken: ct);
+                        break;
+                }
+            }
+        }
+        private async Task SendStatistic(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
+        {
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                  text: "Статистика по текущему заказу:" +
+                                  $"- всего ответов: {order.VoteActual}" +
+                                  $"- голосов за поз. А: {order.VoteA*100/order.VoteActual} %" +
+                                  $"- голосов за поз. B: {order.VoteB * 100/order.VoteActual} %" +
+                                  $"на тест потрачено {order.VoteActual/userData.BalToVoteKoef}",
+                                  cancellationToken: ct);
+        }
+        private async Task Running(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData, bool lowBal)
+        {
+            if (lowBal)
+            {
+                order.State = OrdState.BalanceLo;
+                return;
+            }
 
+            var userText = update.Message.Text;
+            if (userText != null)
+            {
+                switch (userText)
+                {
+                    case "/showstat":
+                        await SendStatistic(client, update, order, ct, userData);
+                        break;
+                    case "/pause":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Постановка заказа на паузу, показы не производятся",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.Paused;
+                        break;
+                    case "/maincustomer":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Сброс заказа, возврат в меню заказчика",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.ToDelete;
+                        break;
+                    default:
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Выберите действие",
+                                                          cancellationToken: ct);
+                        break;
+                }
+            }
+        }
+        private async Task Paused(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData, bool lowBal)
+        {
+            if (lowBal)
+            {
+                order.State = OrdState.BalanceLo;
+                return;
+            }
+            
+            var userText = update.Message.Text;
+            if (userText != null)
+            {
+                switch (userText)
+                {
+                    case "/showstat":
+                        await SendStatistic(client, update, order, ct, userData);
+                        break;
+                    case "/pause":
+                        order.State = Order.OrdState.Running;
+                        break;
+                    case "/maincustomer":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Сброс заказа, возврат в меню заказчика",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.ToDelete;
+                        break;
+                    default:
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Выберите действие",
+                                                          cancellationToken: ct);
+                        break;
+                }
+            }
+        }
+        private async Task DeleteOrder(ITelegramBotClient client, Update update, long _orderIdx, Order _order, CancellationToken ct)
+        {
+            var userText = update.Message.Text;
+            if (userText != null)
+            {
+                switch (userText)
+                {
+                    case "/delete":
+                        OrderDict.Remove(_orderIdx);
+                        //ShowCustomerMenu
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Выбор создать заказ /createorder или посмотреть список заказов /showorderlist",
+                                                          cancellationToken: ct);
+                        break;
+                    case "/pause":
+                        _order.State = Order.OrdState.Paused;
+                        break;
+                    default:
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Выберите действие",
+                                                          cancellationToken: ct);
+                        break;
+                }
+            }
+        }
         protected virtual void Dispose(bool disposing)
         {
             if (!disposedValue)

@@ -8,7 +8,17 @@ namespace OtusBasicGradWork
     {
         static void Main(string[] args)
         {
-            var botClient = new TelegramBotClient("");
+            // Получаем значение токена из переменной среды
+            //string botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
+            string botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN", EnvironmentVariableTarget.Machine)!;
+
+            if (string.IsNullOrEmpty(botToken))
+            {
+                Console.WriteLine("Telegram bot token is not set in the environment variables.");
+                return;
+            }
+
+            var botClient = new TelegramBotClient(botToken);
             var _executor = new Executor();
             var _customer = new Customer();
             var _customerTestBalance = 1000;

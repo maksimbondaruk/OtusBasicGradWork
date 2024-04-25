@@ -31,11 +31,11 @@ namespace OtusBasicGradWork
                 _name = value;
             } 
         }
-        public long UserId { get; } = int.MinValue;
+        public long UserId { get; } = 0;
         public int VoteOrder {get; internal set ;} = 0;
-        public int VoteActual { get; } = int.MinValue;
-        public double VoteA {  get; } = double.MinValue;
-        public double VoteB { get; } = double.MinValue;
+        public int VoteActual { get; } = 0;
+        public double VoteA {  get; } = 0.0;
+        public double VoteB { get; } = 0.0;
         public OrdState State { get; set; }
 
         public Order(long userId)
