@@ -29,33 +29,35 @@ namespace OtusBasicGradWork
             if (update.Message.Text == "/createorder") 
             {
                 var tempOrder = new Order(update.Message.Chat.Id);
-                for (var i = 0; i < 999; i++)
+                for (var i = 1; i < 1000; i++)
                 {
                     if (OrderDict.TryAdd(update.Message.Chat.Id * 1000 + i, tempOrder))
                     {
+                        await Console.Out.WriteLineAsync("Добавил новый заказ в словарь");
                         _orderIdx = update.Message.Chat.Id * 1000 + i;
                         OrderDict[_orderIdx].State = Order.OrdState.Initial;
                         OrderDict[_orderIdx].Id = _orderIdx;
                         break;
                     }
                 }
-                if (_orderIdx == 0)
+            }
+            else
+            {
+                for (var i = 1; i < 1000; i++)
                 {
-                    for (var i = 0; i < 999; i++)
+                    if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.ToDelete))
                     {
-                        if (OrderDict.ContainsKey(update.Message.Chat.Id * 1000 + i) & (OrderDict[update.Message.Chat.Id * 1000 + i].State < Order.OrdState.ToDelete))
-                        {
-                            _orderIdx = update.Message.Chat.Id * 1000 + i;
-                            break;
-                        }
+                        await Console.Out.WriteLineAsync("Нашел заказ в словаре");
+                        _orderIdx = update.Message.Chat.Id * 1000 + i;
+                        break;
                     }
+                    return;
                 }
             }
-            
-
+            //if (_orderIdx == 0) return;
 
             var _order = OrderDict[_orderIdx];
-            var _lowBalanceState = userData.Balance < (OrderDict[_orderIdx].VoteOrder - OrderDict[_orderIdx].VoteActual)*userData.BalToVoteKoef;
+            var _lowBalanceState = userData.Balance <= (OrderDict[_orderIdx].VoteOrder - OrderDict[_orderIdx].VoteActual)*userData.BalToVoteKoef;
 
             //StateConditionTable
             switch (_order.State) 
@@ -94,11 +96,15 @@ namespace OtusBasicGradWork
 
         private async Task SetName(ITelegramBotClient client, Update update, Order order, CancellationToken ct)
         {
-            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+           if (update.Message.Text == "/createorder")
+           {
+                await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                               text: "Введите название теста",
                                               cancellationToken: ct);
-            //Тут нужна функция показать кнопки
-            var userText = update.Message.Text;
+               return;
+           }
+                //Тут нужна функция показать кнопки
+                var userText = update.Message.Text;
                 if (userText != null)
                 {
                     switch (userText)
@@ -110,11 +116,8 @@ namespace OtusBasicGradWork
                             order.State = Order.OrdState.ToDelete;
                             break;
                         default:
-                            if (update.Message.Text != "/createorder")
-                            {
-                                order.Name = userText;
-                                order.State = Order.OrdState.Named;
-                            }
+                            order.Name = userText;
+                            order.State = Order.OrdState.Named;
                             break;
                     }
                 }
@@ -124,6 +127,7 @@ namespace OtusBasicGradWork
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                               text: "Пришли фото А",
                                               cancellationToken: ct);
+
             var userText = update.Message.Text;
             if (userText != null)
             {

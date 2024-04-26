@@ -6,7 +6,7 @@ namespace OtusBasicGradWork
 {
     internal class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             // Получаем значение токена из переменной среды
             //string botToken = Environment.GetEnvironmentVariable("TELEGRAM_BOT_TOKEN");
@@ -27,13 +27,12 @@ namespace OtusBasicGradWork
             CancellationTokenSource ct = new CancellationTokenSource();
             CancellationToken token = ct.Token;
 
-            var ro = new ReceiverOptions
-            {
-                AllowedUpdates = new Telegram.Bot.Types.Enums.UpdateType[] { },  
-            };
+                        var ro = new ReceiverOptions
+                        {
+                            AllowedUpdates = new Telegram.Bot.Types.Enums.UpdateType[] { },  
+                        };
 
-            botClient.StartReceiving(updateHandler: Handler, pollingErrorHandler: ErrorHandler, receiverOptions: ro);
-            Console.ReadLine();
+                        botClient.StartReceiving(updateHandler: Handler, pollingErrorHandler: ErrorHandler, receiverOptions: ro);
 
             async Task Handler(ITelegramBotClient client, Update update, CancellationToken ct)
             {
@@ -84,18 +83,20 @@ namespace OtusBasicGradWork
             }
 
             async Task ErrorHandler(ITelegramBotClient client, Exception exception, CancellationToken ct)
-            { 
-
+            {
+                await Console.Out.WriteLineAsync("Свалились в ErrorHandler");
             }
-            Console.WriteLine("Hello, World!");
+
+            Console.WriteLine("Bot started. Press any key to stop...");
+            Console.ReadLine();
         }
 
         private static async Task SendMenu(ITelegramBotClient client, Update update, CancellationToken ct)
         {
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                               text: "Выберите роль\n" +
-                                              "/customer - получение фото\n" +
-                                              "/tester - генерация координаты",
+                                              "/customer - заказчик\n" +
+                                              "/tester - тестировщик",
                                               cancellationToken: ct);
         }
     }
