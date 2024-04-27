@@ -20,7 +20,8 @@ namespace OtusBasicGradWork
             if (update.Message.Text == "/customer")
             {
                 await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                  text: "Хотите создать заказ /createorder или посмотреть список своих заказов /showorderlist",
+                                                  text: "Хотите создать заказ /createorder \n " +
+                                                  "или посмотреть список своих заказов /showorderlist",
                                                   cancellationToken: ct);
                 return;
             }
@@ -117,6 +118,7 @@ namespace OtusBasicGradWork
                             break;
                         default:
                             order.Name = userText;
+                            await Console.Out.WriteLineAsync($"Название заказа {order.Name}");
                             order.State = Order.OrdState.Named;
                             break;
                     }
@@ -124,6 +126,7 @@ namespace OtusBasicGradWork
         }
         private async Task GetImg(ITelegramBotClient client, Update update, Order order, CancellationToken ct, string fileStoreName)
         {
+            await Console.Out.WriteLineAsync("Пробуем запросить изображение");
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                               text: "Пришли фото А",
                                               cancellationToken: ct);
