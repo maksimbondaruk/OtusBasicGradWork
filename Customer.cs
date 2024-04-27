@@ -65,10 +65,20 @@ namespace OtusBasicGradWork
             {
                 case Order.OrdState.Initial:
                     await SetName(client, update, _order, ct);
+                   
+                    await Console.Out.WriteLineAsync("Пробуем запросить изображение A");
+                    await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                      text: "Пришли фото А",
+                                                      cancellationToken: ct);
                     break;
                 case Order.OrdState.Named:
                     await GetImg(client, update, _order, ct, "A.jpg");
                     _order.State = Order.OrdState.LoadedA;
+                    
+                    await Console.Out.WriteLineAsync("Пробуем запросить изображение B");
+                    await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                      text: "Пришли фото А",
+                                                      cancellationToken: ct);
                     break;
                 case Order.OrdState.LoadedA:
                     await GetImg(client, update, _order, ct, "B.jpg");
@@ -105,32 +115,30 @@ namespace OtusBasicGradWork
                return;
            }
                 //Тут нужна функция показать кнопки
-                var userText = update.Message.Text;
-                if (userText != null)
+            var userText = update.Message.Text;
+            if (userText != null)
+            {
+                switch (userText)
                 {
-                    switch (userText)
-                    {
-                        case "/maincustomer":
-                            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                              text: "Сброс заказа, возврат в меню заказчика",
-                                                              cancellationToken: ct);
-                            order.State = Order.OrdState.ToDelete;
-                            break;
-                        default:
-                            order.Name = userText;
-                            await Console.Out.WriteLineAsync($"Название заказа {order.Name}");
-                            order.State = Order.OrdState.Named;
-                            break;
+                    case "/maincustomer":
+                        await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                          text: "Сброс заказа, возврат в меню заказчика",
+                                                          cancellationToken: ct);
+                        order.State = Order.OrdState.ToDelete;
+                        break;
+                    default:
+                        order.Name = userText;
+                        await Console.Out.WriteLineAsync($"Название заказа {order.Name}");
+                        order.State = Order.OrdState.Named;
+                        break;
                     }
                 }
         }
         private async Task GetImg(ITelegramBotClient client, Update update, Order order, CancellationToken ct, string fileStoreName)
         {
-            await Console.Out.WriteLineAsync("Пробуем запросить изображение");
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                              text: "Пришли фото А",
+                                              text: "Это просто кнопки для меню \n /maincustomer \n /back",
                                               cancellationToken: ct);
-
             var userText = update.Message.Text;
             if (userText != null)
             {

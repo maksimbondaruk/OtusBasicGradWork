@@ -1,5 +1,6 @@
 ﻿using System;
 using Telegram.Bot;
+using Telegram.Bot.Exceptions;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
 using Telegram.Bot.Types.Enums;
@@ -19,7 +20,6 @@ namespace OtusBasicGradWork
             }
 
             var botClient = new TelegramBotClient(botToken);
-            var me = await botClient.GetMeAsync();
             using CancellationTokenSource cts = new CancellationTokenSource();
             CancellationToken token = cts.Token;
             var _executor = new Executor();
@@ -35,6 +35,8 @@ namespace OtusBasicGradWork
                                      },
                                      cancellationToken: token);
 
+            var me = await botClient.GetMeAsync();
+
             var apiTestResult = await botClient.TestApiAsync();
 
             if (apiTestResult)
@@ -47,21 +49,29 @@ namespace OtusBasicGradWork
                 return;
             }
 
-            Console.WriteLine("Бот запущен. Нажмите любую клавишу для остановки...");
+            Console.WriteLine($"Бот запущен для @{me.Username}. Нажмите любую клавишу для остановки...");
             Console.ReadKey();
+
             cts.Cancel();
 
             Task HandleErrorAsync(ITelegramBotClient client, Exception exception, CancellationToken cts)
             {
                 Console.WriteLine("Свалились в ErrorHandler");
-                var errorMessage = exception.Message;
-                Console.WriteLine(errorMessage);
+                var ErrorMessage = exception switch
+                {
+                    ApiRequestException apiRequestException
+                        => $"Telegram API Error:\n[{apiRequestException.ErrorCode}]\n{apiRequestException.Message}",
+                    _ => exception.ToString()
+                };
 
+                Console.WriteLine(ErrorMessage);
                 return Task.CompletedTask;
             }
             async Task HandleUpdateAsync(ITelegramBotClient client, Update update, CancellationToken ct)
             {
-                if (update.Message == null) return;
+                //if (update.Message == null) return;
+                if (update.Message is not { } message)
+                    return;
 
                 if (!dictStatesOfUsers.TryGetValue(update.Message.Chat.Id, out var userData))
                 {
