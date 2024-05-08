@@ -65,27 +65,20 @@ namespace OtusBasicGradWork
             {
                 case Order.OrdState.Initial:
                     await SetName(client, update, _order, ct);
-                   
-                    await Console.Out.WriteLineAsync("Пробуем запросить изображение A");
-                    await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                      text: "Пришли фото А",
-                                                      cancellationToken: ct);
+                    await RequestImgText(client, update, _order, OrdState.Named, "Пришли фото А", ct);
                     break;
                 case Order.OrdState.Named:
                     await GetImg(client, update, _order, ct, "A.jpg");
                     _order.State = Order.OrdState.LoadedA;
-                    
-                    await Console.Out.WriteLineAsync("Пробуем запросить изображение B");
-                    await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                                      text: "Пришли фото А",
-                                                      cancellationToken: ct);
+                    await RequestImgText(client, update, _order, OrdState.LoadedA, "Пришли фото Б", ct);
                     break;
                 case Order.OrdState.LoadedA:
                     await GetImg(client, update, _order, ct, "B.jpg");
                     _order.State = Order.OrdState.LoadedB;
+                    await GetVoteOrder(client, update, _order, ct, userData, _lowBalanceState);
                     break;
                 case Order.OrdState.LoadedB:
-                    await GetVoteOrder(client, update, _order, ct, userData, _lowBalanceState);
+                    //await GetVoteOrder(client, update, _order, ct, userData, _lowBalanceState);
                     break;
                 case Order.OrdState.BalanceLo:
                     await BalanceLo(client, update, _order, ct, userData);
@@ -103,6 +96,21 @@ namespace OtusBasicGradWork
                     await DeleteOrder(client, update, _orderIdx, _order, ct);
                     break;
             }
+        }
+
+        private static async Task RequestImgText(ITelegramBotClient client, Update update, Order _order, OrdState orderstate, string usermessage, CancellationToken ct)
+        {
+            if (_order.State == orderstate)
+            {
+                await Console.Out.WriteLineAsync("Пробуем запросить изображение: " + usermessage);
+                await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                                  text: usermessage,
+                                                  cancellationToken: ct);
+            }
+
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                      text: "Это просто кнопки для меню \n /maincustomer \n /back",
+                                      cancellationToken: ct);
         }
 
         private async Task SetName(ITelegramBotClient client, Update update, Order order, CancellationToken ct)
@@ -163,7 +171,7 @@ namespace OtusBasicGradWork
                         break;
                 }
             }
-            string dirName = Path.Combine(@"C:\", update.Message.Chat.Id.ToString(), "customer", order.Id.ToString());
+            string dirName = Path.Combine(@"C:\splittestmpbot\", update.Message.Chat.Id.ToString(), "customer", order.Id.ToString());
             // если папка не существует
             if (!Directory.Exists(dirName))
             {
@@ -177,7 +185,8 @@ namespace OtusBasicGradWork
                     ct.ThrowIfCancellationRequested(); // генерируем исключение
                 var _filePath = fileInfo.FilePath;
 
-                string desinationFilePath = Path.Combine(dirName, _filePath, fileStoreName);
+                // string desinationFilePath = Path.Combine(dirName, _filePath, fileStoreName);
+                string desinationFilePath = Path.Combine(dirName, fileStoreName);
                 await using FileStream fileStream = System.IO.File.OpenWrite(desinationFilePath);
                 await client.DownloadFileAsync(filePath: _filePath, destination: fileStream);
             }
@@ -199,9 +208,15 @@ namespace OtusBasicGradWork
             if (lowBal) 
             {
                 order.State = OrdState.BalanceLo;
+                /*--------------------
+                Сюда нужно запихать часть с текстом от BalanceLo и оставить ту, которая после ввода текста
+                */
                 return;
             }
             order.State = OrdState.BalanceOk;
+            /*--------------------
+            Сюда нужно запихать часть с текстом от BalanceOk и оставить ту, которая после ввода текста
+            */
         }
         private async Task BalanceLo(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
         {
@@ -245,7 +260,10 @@ namespace OtusBasicGradWork
         private async Task BalanceOk(ITelegramBotClient client, Update update, Order order, CancellationToken ct, User userData)
         {
             await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
-                                  text: "На этом этапе можно запустить тест, скорректироват или отменить его",
+                                  text: "На этом этапе можно запустить тест, скорректировать или отменить его",
+                                  cancellationToken: ct);
+            await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                  text: "Это просто кнопки для меню \n /changevoteorder \n /runtest \n /maincustomer",
                                   cancellationToken: ct);
             var userText = update.Message.Text;
             if (userText != null)

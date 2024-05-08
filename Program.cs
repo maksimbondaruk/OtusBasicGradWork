@@ -81,6 +81,11 @@ namespace OtusBasicGradWork
 
                 if ((update.Message.Text == "/main") || (update.Message.Text == "/start"))
                 {
+                    await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
+                                  text: $"Привет, {update.Message.Chat.FirstName.ToString()}. Мы в самом начале меню \n"/* +
+                                  "/customer - заказчик\n" +
+                                  "/tester - тестировщик"*/,
+                                  cancellationToken: ct);
                     userData.ChatMode = ChatMode.Initial;
                     await SendMenu(client, update, ct);
                 }
@@ -113,13 +118,13 @@ namespace OtusBasicGradWork
                     }
                 }
             }
-            static async Task SendMenu(ITelegramBotClient client, Update update, CancellationToken cts)
+            static async Task SendMenu(ITelegramBotClient client, Update update, CancellationToken ct)
             {
                 await client.SendTextMessageAsync(chatId: update.Message.Chat.Id,
                                                   text: "Выберите роль\n" +
                                                   "/customer - заказчик\n" +
                                                   "/tester - тестировщик",
-                                                  cancellationToken: cts);
+                                                  cancellationToken: ct);
             }
 
 
